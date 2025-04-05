@@ -119,7 +119,13 @@ if st.sidebar.button("Fetch Child Tool IDs"):
                 st.sidebar.write("No child tools found for this Container Tool ID.")
 
 # Input for the tool IDs (comma separated).
-tool_ids_input = st.text_input("Tool IDs (comma separated)", placeholder="e.g., 644, 645, 646")
+tool_ids_input = st.text_input(
+    "Tool IDs (comma separated)",
+    placeholder="e.g., 644, 645, 646",
+    help=("Enter one or more tool IDs separated by commas. For example: '644, 645, 646'. "
+          "It's recommended to group tools that are logically connected together. "
+          "Note: Each tool takes about 4 seconds to generate, so parsing 10 tools may take around 40 seconds.")
+)
 
 # Button to run the conversion
 if st.button("Run Conversion"):
