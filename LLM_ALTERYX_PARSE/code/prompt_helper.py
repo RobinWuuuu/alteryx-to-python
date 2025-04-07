@@ -9,6 +9,7 @@ from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from code.ToolContextDictionary import comprehensive_guide
+import streamlit as st
 
 
 def create_tool_io_template(df_connections, tool_id):
@@ -56,13 +57,14 @@ def create_tool_io_template(df_connections, tool_id):
     return template_text
 
 
-def generate_python_code_from_alteryx_df(df_nodes, df_connections):
+def generate_python_code_from_alteryx_df(df_nodes, df_connections, progress_bar=None):
     """
     Convert Alteryx tool configurations in a DataFrame to equivalent Python code,
     incorporating I/O details so the LLM knows which dataframes are expected.
 
     Parameters:
         df_nodes (pd.DataFrame): DataFrame containing columns 'tool_id', 'tool_type', and 'text'.
+        progress_bar (st.progress): Optional Streamlit progress bar to update during processing.
 
     Returns:
         pd.DataFrame: A DataFrame with columns 'tool_id', 'tool_type', and 'python_code'.
@@ -73,8 +75,8 @@ def generate_python_code_from_alteryx_df(df_nodes, df_connections):
     Tool type: {tool_type}
     Configuration details: {config_text}
     I/O details: {io_info}
-    Additional instructions: {additional_instructions}
-
+    Additional instructions: {additional_instructions} In the <DefaultAnnotationText> element, there is a text field that contains the high level description of the tool but it could be empty. You can keep it as comment in the code.
+    
     Rules:
     1. Please return only the Python code that reproduces the functionality of this tool.
     2. Don't include any explanations or comments.
@@ -95,6 +97,8 @@ def generate_python_code_from_alteryx_df(df_nodes, df_connections):
     chain = LLMChain(llm=llm, prompt=prompt_template)
 
     results = []
+    total_tools = len(df_nodes)  # Total number of tools to process
+    progress_value = 0.05  # Initial progress value
     # Process each node in the DataFrame.
     for index, row in df_nodes.iterrows():
         tool_name = row["tool_type"]
@@ -119,10 +123,16 @@ def generate_python_code_from_alteryx_df(df_nodes, df_connections):
             "python_code": generated_code
         })
 
+        
+        # Update progress bar
+        if progress_bar is not None:
+            progress_value += (1 / total_tools)*0.8
+            progress_bar.progress(min(max(progress_value, 0.0), 1.0))  # Clamp the value between 0.0 and 1.0
+
     return pd.DataFrame(results)
 
 
-def combine_python_code_of_tools(tool_ids, df_generated_code, model="gpt-4o"):
+def combine_python_code_of_tools(tool_ids, df_generated_code, extra_user_instructions="", model="gpt-4o"):
     """
     Combine the Python code for multiple tool IDs into a single script using an LLM.
 
@@ -131,6 +141,7 @@ def combine_python_code_of_tools(tool_ids, df_generated_code, model="gpt-4o"):
         df_generated_code (pd.DataFrame): DataFrame containing columns:
                                           'tool_id' and 'python_code'.
                                           Each row holds Python code for a particular tool.
+        extra_user_instructions (str): Additional instructions for the code generation.
     Returns:
         str: A single string with the merged Python code.
     """
@@ -150,13 +161,16 @@ def combine_python_code_of_tools(tool_ids, df_generated_code, model="gpt-4o"):
     all_tool_code = "\n\n".join(
         f"Tool {tool_id} code:\n{snippet}" for tool_id, snippet in zip(tool_ids, code_snippets)
     )
-
+    if not extra_user_instructions:
+        extra_user_instructions = ''
     # 2) Create a prompt template that instructs the LLM to merge the code snippets.
     template = """
     You are an expert data engineer. We have multiple python code snippets translated from different Alteryx tools, and we want to combine them into a single coherent Python script.
-
+    
     Code snippets:
     {all_tool_code}
+    
+    Extra user instructions: {extra_user_instructions} 
 
     Requirements:
     1. Please return only the combined Python script, don't use ```python ``` to make it a code block. Just return the code.
@@ -164,13 +178,13 @@ def combine_python_code_of_tools(tool_ids, df_generated_code, model="gpt-4o"):
     3. Do not write function definitions or docstrings unless needed to chain code together.
     4. Merge them in a logical order that respects typical data processing flow (if possible).
     5. Eliminate redundant or conflicting statements.
-    6. For each tool, add very concise comment to describe the tool's purpose.
+    6. For each tool, add very concise comment to describe the tool's purpose if not obvious.
 
     Provide only the merged code below:
     """
 
     prompt = PromptTemplate(
-        input_variables=["all_tool_code"],
+        input_variables=["all_tool_code", "extra_user_instructions"],
         template=template
     )
 
@@ -180,5 +194,5 @@ def combine_python_code_of_tools(tool_ids, df_generated_code, model="gpt-4o"):
     chain = LLMChain(llm=llm, prompt=prompt)
 
     # 4) Run the chain to combine the code.
-    merged_code = chain.run(all_tool_code=all_tool_code).strip()
+    merged_code = chain.run(all_tool_code=all_tool_code, extra_user_instructions=extra_user_instructions).strip()
     return merged_code

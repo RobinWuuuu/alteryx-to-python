@@ -127,6 +127,12 @@ tool_ids_input = st.text_input(
           "Note: Each tool takes about 4 seconds to generate, so parsing 10 tools may take around 40 seconds.")
 )
 
+extra_user_instructions = st.text_input(
+    "Extra User Instruction (optional)",
+    placeholder="e.g., These tools help clean the CD data.",
+    help="You can provide additional instructions for the code generation."
+)
+
 # Button to run the conversion
 if st.button("Run Conversion"):
     # Basic input validation
@@ -149,10 +155,17 @@ if st.button("Run Conversion"):
         os.environ["OPENAI_API_KEY"] = api_key
         logging.debug("OPENAI_API_KEY set in environment.")
 
+
         try:
+            # Display a message placeholder and a progress bar.
+            message_placeholder = st.empty()
+            progress_bar = st.progress(0)
+
             # Load Alteryx nodes and connections from the selected file.
+            message_placeholder.write("Parse alteryx file...")
             df_nodes, df_connections = parser.load_alteryx_data(temp_file_path)
             logging.debug(f"Loaded {len(df_nodes)} nodes and {len(df_connections)} connections.")
+            progress_bar.progress(5)
 
             # Filter out unwanted tool types.
             df_nodes = df_nodes[~df_nodes["tool_type"].isin(["BrowseV2", "Toolcontainer"])]
@@ -160,19 +173,23 @@ if st.button("Run Conversion"):
 
             # Generate Python code for the specified tool IDs.
             test_df = df_nodes.loc[df_nodes["tool_id"].isin(tool_ids)]
-            st.write(f"**Generating code for {len(test_df)} tool(s)...**")
+            message_placeholder.write(f"**Generating code for {len(test_df)} tool(s), it may take {len(test_df)*4} seconds...**")
             logging.debug(f"Generating code for {len(test_df)} tool(s) with tool IDs: {tool_ids}")
 
-            df_generated_code = prompt_helper.generate_python_code_from_alteryx_df(test_df, df_connections)
+
+            df_generated_code = prompt_helper.generate_python_code_from_alteryx_df(test_df, df_connections, progress_bar)
 
             # If "tool_id" is missing in df_generated_code, insert it
             if "tool_id" not in df_generated_code.columns:
                 logging.debug("Adding missing 'tool_id' column to generated code DataFrame.")
                 df_generated_code.insert(0, "tool_id", test_df["tool_id"].values)
 
-            # Combine code snippets for the specified tools.
-            final_script = prompt_helper.combine_python_code_of_tools(tool_ids, df_generated_code)
+            message_placeholder.write("**Working on combining code snippets...**")
 
+            # Combine code snippets for the specified tools.
+            final_script = prompt_helper.combine_python_code_of_tools(tool_ids, df_generated_code, extra_user_instructions = extra_user_instructions)
+            message_placeholder.write("**Finished generating code!**")
+            progress_bar.progress(100)
             st.success("Conversion succeeded! Scroll down to see your Python code.")
             st.code(final_script, language="python")
         except Exception as e:
