@@ -38,6 +38,18 @@ comprehensive_guide = {
             - Always use base sheet names for writing Python scripts to access any input .csv or .xlsx file. The base sheet name is the name after excluding the '$' sign from the suffix of the Sheet name. For example, 'Sheet1$' must be used as 'Sheet1' in Python code. Similarly, 'Sheet2$$' must be used as 'Sheet2$' in Python code. We just aim to exclude the last occuring '$' sign before using the Sheet name.
             - DO NOT use parameters like 'error_bad_lines', 'warn_bad_lines' and 'quotechar' in the Python script. DO NOT INCLUDE THEM ELSE YOU WILL BE PENALIZED.
             - Strictly do not write print statements to preview the DataFrames. The generated Python script will only contain the necessary code to read the input file and store it in a DataFrame.
+        
+            Besides above instruction, following are crucial instructions:
+            For database connection, we use python code like following: 
+                from utils.connection import snowflake
+                prd_conn = snowflake.connect_with_service_account()
+                permission_table_query = '''
+                SELECT * FROM EDW_PRD.DM_NAMR_ANALYTICS.NPA_PERMISSIONS
+                WHERE LEADER_EMAIL = 'Wu.Robin@bcg.com'
+                '''
+                permission_df = snowflake.execute_sql_query(permission_table_query, prd_conn)
+                permission_df.head()
+            For flat file, when alteryx uses relative path. Our folder directory start with: C:\Users\wu robin\The Boston Consulting Group, Inc\NAMR People Analytics - Documents\Products
         """
         ),
 
