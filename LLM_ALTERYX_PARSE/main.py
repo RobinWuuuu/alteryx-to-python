@@ -224,14 +224,6 @@ if st.button("Run Conversion"):
             st.write(f"Loaded {len(df_nodes)} nodes and {len(df_connections)} connections.")
             progress_bar.progress(5)
 
-            # Generate execution sequence.
-            execution_sequence = traverse_helper.get_execution_order(df_nodes, df_connections)
-            logging.debug(f"Execution sequence generated with {len(execution_sequence)} steps.")
-            message_placeholder.write(f"Execution sequence generated with {len(execution_sequence)} steps.")
-
-            # Adjust the order of tool IDs based on the execution sequence.
-            ordered_tool_ids = traverse_helper.adjust_order(tool_ids, execution_sequence)
-            st.write(f"Tool IDs ordered has been adjusted based on execution sequence.")
 
             # Filter out unwanted tool types.
             df_nodes = df_nodes[~df_nodes["tool_type"].isin(["BrowseV2", "Toolcontainer"])]
@@ -243,6 +235,16 @@ if st.button("Run Conversion"):
             message_placeholder.write(f"**Generating code for {len(test_df)} tool(s), it may take {len(test_df)*4} seconds...**")
             logging.debug(f"Generating code for {len(test_df)} tool(s) with tool IDs: {tool_ids}")
 
+            # Generate execution sequence.
+            execution_sequence = traverse_helper.get_execution_order(df_nodes, df_connections)
+            logging.debug(f"Execution sequence generated with {len(execution_sequence)} steps.")
+            message_placeholder.write(f"Execution sequence generated with {len(execution_sequence)} steps.")
+
+            # Adjust the order of tool IDs based on the execution sequence.
+            ordered_tool_ids = traverse_helper.adjust_order(tool_ids, execution_sequence)
+            st.write(f"Tool IDs ordered has been adjusted based on execution sequence.")
+
+
             df_generated_code = prompt_helper.generate_python_code_from_alteryx_df(test_df, df_connections, progress_bar, message_placeholder)
 
             # If "tool_id" is missing in df_generated_code, insert it
@@ -253,11 +255,15 @@ if st.button("Run Conversion"):
             message_placeholder.write("**Working on combining code snippets...**")
 
             # Combine code snippets for the specified tools.
-            final_script = prompt_helper.combine_python_code_of_tools(tool_ids, df_generated_code, execution_sequence=ordered_tool_ids, extra_user_instructions=extra_user_instructions)
+            final_script, prompt = prompt_helper.combine_python_code_of_tools(tool_ids, df_generated_code, execution_sequence=ordered_tool_ids, extra_user_instructions=extra_user_instructions)
             message_placeholder.write("**Finished generating code!**")
             progress_bar.progress(100)
             st.success("Conversion succeeded! Scroll down to see your Python code.")
             st.code(final_script, language="python")
+            st.header("Following a prompt was used to generate the code:")
+            st.write("This app is using gpt-4o, if want better result. Please use following prompt in ChatGPT app with o1 or o3-mini-high model")
+            st.code(prompt, language="python")
+
         except Exception as e:
             st.error("Conversion Error:")
             st.exception(e)

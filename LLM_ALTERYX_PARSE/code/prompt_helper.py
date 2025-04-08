@@ -79,10 +79,9 @@ def generate_python_code_from_alteryx_df(df_nodes, df_connections, progress_bar=
     
     Rules:
     1. Please return only the Python code that reproduces the functionality of this tool.
-    2. Don't include any explanations or comments.
-    3. Don't include any import statements.
-    4. Don't include any function definitions or docstrings.
-    5. Don't include sample data, just the code.
+    2. Include import statements as a comments.
+    3. Don't include any function definitions or docstrings.
+    4. Don't include sample data, just the code.
     """
 
     prompt_template = PromptTemplate(
@@ -180,11 +179,11 @@ def combine_python_code_of_tools(tool_ids, df_generated_code, execution_sequence
 
     Requirements:
     1. Please return only the combined Python script, don't use ```python ``` to make it a code block. Just return the code.
-    2. Do not add any import statements (assume they exist).
+    2. Do not add any import statements for common packages (Assume they exist), for self-build functions, include import statement as comments
     3. Do not write function definitions or docstrings unless needed to chain code together.
     4. Merge them in a logical order that respects typical data processing flow (if possible).
     5. Eliminate redundant or conflicting statements.
-    6. For each tool, add very concise comment to describe the tool's purpose if not obvious.
+    6. Add concise comment to help understand the code.
     7. When combining the tools snippets, please strictly follow the order here:{execution_sequence}
 
 
@@ -203,4 +202,11 @@ def combine_python_code_of_tools(tool_ids, df_generated_code, execution_sequence
 
     # 4) Run the chain to combine the code.
     merged_code = chain.run(all_tool_code=all_tool_code, execution_sequence=execution_sequence, extra_user_instructions=extra_user_instructions).strip()
-    return merged_code
+
+    full_prompt = prompt.format(
+        all_tool_code=all_tool_code,
+        extra_user_instructions=extra_user_instructions,
+        execution_sequence=execution_sequence
+    )
+
+    return merged_code, full_prompt
