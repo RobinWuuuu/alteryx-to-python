@@ -55,6 +55,7 @@ def set_project_root(marker: str = "README.md"):
 try:
     from code import alteryx_parser as parser
     from code import prompt_helper
+    from code import traverse_helper
 
     logging.debug("Project modules imported successfully.")
 except Exception as e:
@@ -63,32 +64,69 @@ except Exception as e:
     logging.exception("Error importing project modules.")
     st.stop()
 
-st.title("Alteryx to Python Converter")
-
-# Short instructions for the user
-st.markdown(
-    """
-**How to Use this App**  
-1. **Upload a .yxmd file** in the sidebar.  
-2. **Enter your OpenAI API Key** (required for code generation).  
-3. (Optional) **Enter a Container Tool ID** and click "Fetch Child Tool IDs" to get child tools for that container.  
-4. **Provide your Tool IDs** in the main text box (comma-separated).  
-5. **Click "Run Conversion"** to generate Python code.
-""",
-    unsafe_allow_html=True
-)
-
+# --------------------- Sidebar ---------------------------
+# --------------------- Sidebar ---------------------------
+# --------------------- Sidebar ---------------------------
+st.sidebar.header("Step 1 - Upload Workflow File")
 # File uploader: user browses for a .yxmd file.
 uploaded_file = st.sidebar.file_uploader("Select Alteryx Workflow File", type=["yxmd"])
+st.sidebar.header("Step 2 - Upload OpenAI API Key")
 
 # Input for the OpenAI API key.
 api_key = st.sidebar.text_input("OpenAI API Key", type="password")
 
-# Container instructions
-st.sidebar.markdown("_If you have a container tool in your workflow, you can fetch its child tool IDs here:_")
+
+st.sidebar.markdown("---")
+st.sidebar.header("Helpers")
+
+st.sidebar.header("Helper 1 - Get Execution Sequence")
+# Sidebar: Button to generate the execution sequence
+
+# Initialize session state for sequence generation if not already set
+if "sequence_generated" not in st.session_state:
+    st.session_state.sequence_generated = False
+if "sequence_str" not in st.session_state:
+    st.session_state.sequence_str = ""
+
+if st.sidebar.button("Generate Sequence"):
+    if not uploaded_file:
+        st.sidebar.warning("Please upload a .yxmd file before generating the execution sequence.")
+    else:
+        # Save the uploaded file to a temporary path
+        temp_file_path = "uploaded_workflow.yxmd"
+        with open(temp_file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        logging.debug(f"File saved to {temp_file_path} for generating execution sequence.")
+
+        # Load Alteryx data
+        df_nodes, df_connections = parser.load_alteryx_data(temp_file_path)
+
+        # Generate execution sequence (list of tool IDs)
+        execution_sequence = traverse_helper.get_execution_order(df_nodes, df_connections)
+        st.session_state.sequence_str = ", ".join(str(tid) for tid in execution_sequence)
+
+        # Mark sequence as generated in session state
+        st.session_state.sequence_generated = True
+
+# If a sequence was generated, display the persistent message and download button
+if st.session_state.sequence_generated:
+    st.sidebar.write("Execution sequence of current file has been generated.")
+    st.sidebar.download_button(
+        label="Download Sequence as TXT",
+        data=st.session_state.sequence_str,
+        file_name="execution_sequence.txt",
+        mime="text/plain"
+    )
+
+
+
 
 # Input for the container tool ID
+st.sidebar.header("Helper 2 - Get Child Tool IDs of Container")
+
 container_tool_id = st.sidebar.text_input("Enter Container Tool ID")
+# Container instructions
+st.sidebar.markdown("Fetch all child tool IDs of a container.")
 
 # Button to fetch child tool IDs
 if st.sidebar.button("Fetch Child Tool IDs"):
@@ -118,6 +156,24 @@ if st.sidebar.button("Fetch Child Tool IDs"):
             else:
                 st.sidebar.write("No child tools found for this Container Tool ID.")
 
+
+# --------------------- Main Content ---------------------------
+# --------------------- Main Content ---------------------------
+
+st.title("Alteryx to Python Converter")
+
+# Short instructions for the user
+st.markdown(
+    """
+**How to Use this App**  
+1. **Upload a .yxmd file** in the sidebar.  
+2. **Enter your OpenAI API Key** (required for code generation).  
+3. (Optional) **Enter a Container Tool ID** and click "Fetch Child Tool IDs" to get child tools for that container.  
+4. **Provide your Tool IDs** in the main text box (comma-separated).  
+5. **Click "Run Conversion"** to generate Python code.
+""",
+    unsafe_allow_html=True
+)
 # Input for the tool IDs (comma separated).
 tool_ids_input = st.text_input(
     "Tool IDs (comma separated)",
@@ -151,6 +207,7 @@ if st.button("Run Conversion"):
         tool_ids = [tid.strip() for tid in tool_ids_clean.split(",") if tid.strip()]
         logging.debug(f"Parsed tool IDs: {tool_ids}")
 
+
         # Set the OpenAI API key as an environment variable.
         os.environ["OPENAI_API_KEY"] = api_key
         logging.debug("OPENAI_API_KEY set in environment.")
@@ -164,20 +221,29 @@ if st.button("Run Conversion"):
             # Load Alteryx nodes and connections from the selected file.
             message_placeholder.write("Parse alteryx file...")
             df_nodes, df_connections = parser.load_alteryx_data(temp_file_path)
-            logging.debug(f"Loaded {len(df_nodes)} nodes and {len(df_connections)} connections.")
+            st.write(f"Loaded {len(df_nodes)} nodes and {len(df_connections)} connections.")
             progress_bar.progress(5)
+
+            # Generate execution sequence.
+            execution_sequence = traverse_helper.get_execution_order(df_nodes, df_connections)
+            logging.debug(f"Execution sequence generated with {len(execution_sequence)} steps.")
+            message_placeholder.write(f"Execution sequence generated with {len(execution_sequence)} steps.")
+
+            # Adjust the order of tool IDs based on the execution sequence.
+            ordered_tool_ids = traverse_helper.adjust_order(tool_ids, execution_sequence)
+            st.write(f"Tool IDs ordered has been adjusted based on execution sequence.")
 
             # Filter out unwanted tool types.
             df_nodes = df_nodes[~df_nodes["tool_type"].isin(["BrowseV2", "Toolcontainer"])]
-            logging.debug(f"After filtering, {len(df_nodes)} nodes remain.")
+            message_placeholder.write(f"After filtering, {len(df_nodes)} nodes remain.")
+            st.write(f"After filtering browser and container, {len(df_nodes)} nodes remain.")
 
             # Generate Python code for the specified tool IDs.
             test_df = df_nodes.loc[df_nodes["tool_id"].isin(tool_ids)]
             message_placeholder.write(f"**Generating code for {len(test_df)} tool(s), it may take {len(test_df)*4} seconds...**")
             logging.debug(f"Generating code for {len(test_df)} tool(s) with tool IDs: {tool_ids}")
 
-
-            df_generated_code = prompt_helper.generate_python_code_from_alteryx_df(test_df, df_connections, progress_bar)
+            df_generated_code = prompt_helper.generate_python_code_from_alteryx_df(test_df, df_connections, progress_bar, message_placeholder)
 
             # If "tool_id" is missing in df_generated_code, insert it
             if "tool_id" not in df_generated_code.columns:
@@ -187,7 +253,7 @@ if st.button("Run Conversion"):
             message_placeholder.write("**Working on combining code snippets...**")
 
             # Combine code snippets for the specified tools.
-            final_script = prompt_helper.combine_python_code_of_tools(tool_ids, df_generated_code, extra_user_instructions = extra_user_instructions)
+            final_script = prompt_helper.combine_python_code_of_tools(tool_ids, df_generated_code, execution_sequence=ordered_tool_ids, extra_user_instructions=extra_user_instructions)
             message_placeholder.write("**Finished generating code!**")
             progress_bar.progress(100)
             st.success("Conversion succeeded! Scroll down to see your Python code.")

@@ -57,7 +57,7 @@ def create_tool_io_template(df_connections, tool_id):
     return template_text
 
 
-def generate_python_code_from_alteryx_df(df_nodes, df_connections, progress_bar=None):
+def generate_python_code_from_alteryx_df(df_nodes, df_connections, progress_bar=None, message_placeholder=None):
     """
     Convert Alteryx tool configurations in a DataFrame to equivalent Python code,
     incorporating I/O details so the LLM knows which dataframes are expected.
@@ -98,6 +98,7 @@ def generate_python_code_from_alteryx_df(df_nodes, df_connections, progress_bar=
 
     results = []
     total_tools = len(df_nodes)  # Total number of tools to process
+    rest_tools = total_tools
     progress_value = 0.05  # Initial progress value
     # Process each node in the DataFrame.
     for index, row in df_nodes.iterrows():
@@ -129,10 +130,15 @@ def generate_python_code_from_alteryx_df(df_nodes, df_connections, progress_bar=
             progress_value += (1 / total_tools)*0.8
             progress_bar.progress(min(max(progress_value, 0.0), 1.0))  # Clamp the value between 0.0 and 1.0
 
+        rest_tools -= 1
+        # Update message_placeholder
+        message_placeholder.write(
+            f"**Generating code for {rest_tools} tool(s), it may take {rest_tools * 4} seconds...**")
+
     return pd.DataFrame(results)
 
 
-def combine_python_code_of_tools(tool_ids, df_generated_code, extra_user_instructions="", model="gpt-4o"):
+def combine_python_code_of_tools(tool_ids, df_generated_code, execution_sequence="",extra_user_instructions="", model="gpt-4o"):
     """
     Combine the Python code for multiple tool IDs into a single script using an LLM.
 
@@ -179,12 +185,14 @@ def combine_python_code_of_tools(tool_ids, df_generated_code, extra_user_instruc
     4. Merge them in a logical order that respects typical data processing flow (if possible).
     5. Eliminate redundant or conflicting statements.
     6. For each tool, add very concise comment to describe the tool's purpose if not obvious.
+    7. When combining the tools snippets, please strictly follow the order here:{execution_sequence}
+
 
     Provide only the merged code below:
     """
 
     prompt = PromptTemplate(
-        input_variables=["all_tool_code", "extra_user_instructions"],
+        input_variables=["all_tool_code", "extra_user_instructions", "execution_sequence"],
         template=template
     )
 
@@ -194,5 +202,5 @@ def combine_python_code_of_tools(tool_ids, df_generated_code, extra_user_instruc
     chain = LLMChain(llm=llm, prompt=prompt)
 
     # 4) Run the chain to combine the code.
-    merged_code = chain.run(all_tool_code=all_tool_code, extra_user_instructions=extra_user_instructions).strip()
+    merged_code = chain.run(all_tool_code=all_tool_code, execution_sequence=execution_sequence, extra_user_instructions=extra_user_instructions).strip()
     return merged_code

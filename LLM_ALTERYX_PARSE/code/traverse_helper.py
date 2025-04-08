@@ -31,6 +31,12 @@ def get_execution_order(df_nodes, df_connections):
     return execution_order
 
 
+def adjust_order(random_tool_ids, execution_sequence):
+    # Build a lookup dictionary mapping tool IDs to their position.
+    sequence_lookup = {tool: index for index, tool in enumerate(execution_sequence)}
+    return sorted(random_tool_ids, key=lambda tool: sequence_lookup.get(tool, float('inf')))
+
+
 def parse_linear_chains(df_connections):
     """
     Parse all linear chains from a connections DataFrame.
