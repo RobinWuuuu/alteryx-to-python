@@ -184,7 +184,7 @@ def combine_python_code_of_tools(tool_ids, df_generated_code, execution_sequence
     4. Merge them in a logical order that respects typical data processing flow (if possible).
     5. Eliminate redundant or conflicting statements.
     6. Add concise comment to help understand the code.
-    7. When combining the tools snippets, please strictly follow the order here:{execution_sequence}
+    7. When combining the tools snippets, please strictly follow the order here: {execution_sequence}
 
 
     Provide only the merged code below:

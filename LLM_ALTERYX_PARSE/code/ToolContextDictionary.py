@@ -49,7 +49,13 @@ comprehensive_guide = {
                 '''
                 permission_df = snowflake.execute_sql_query(permission_table_query, prd_conn)
                 permission_df.head()
-            For flat file, when alteryx uses relative path. Our folder directory start with: C:\Users\wu robin\The Boston Consulting Group, Inc\NAMR People Analytics - Documents\Products
+            For flat file, when alteryx uses relative path. Our folder directory can be found with following python code: 
+                # Our directory always start with "USER_HOME / "The Boston Consulting Group, Inc" / "NAMR People Analytics - Documents" / "Products" /"
+                from pathlib import Path
+                USER_HOME = Path.home()
+                E.g.: PATH = USER_HOME / "The Boston Consulting Group, Inc" / "NAMR People Analytics - Documents" / "Products" / "Filename.csv"
+                # In another format is C:\Users\{User Name}\The Boston Consulting Group, Inc\NAMR People Analytics - Documents\Products
+       
         """
         ),
 
@@ -254,8 +260,6 @@ comprehensive_guide = {
 
     "Formula": (
         r"""
-         
-
             Carefully refer the <FormulaFields></FormulaFields> tag to extract three key details: the formula being used, the datatype it is cast to, and the column(s) to which it is applied.
             Whenever formulae includes slicing or accessing the beggining or ending string parts, use Python's built-in .startswith() and .endswith() commands rather than slicing commands. For example, Right([Name],3) can be written as name.endswith(".3")
 
