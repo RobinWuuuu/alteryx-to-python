@@ -69,7 +69,7 @@ except Exception as e:
 # --------------------- Sidebar ---------------------------
 st.sidebar.header("Step 1 - Upload Workflow File")
 # File uploader: user browses for a .yxmd file.
-uploaded_file = st.sidebar.file_uploader("Select Alteryx Workflow File", type=["yxmd"])
+uploaded_file = st.sidebar.file_uploader("Select Alteryx Workflow File", type=["yxmd", "yxmc"])
 st.sidebar.header("Step 2 - Upload OpenAI API Key")
 
 # Input for the OpenAI API key.

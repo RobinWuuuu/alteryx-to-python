@@ -62,7 +62,8 @@ comprehensive_guide = {
     "Alteryxselect": (
         r"""
         Follow the provided instructions below:
-        
+        Important: And ignore all fields with the name "*Unknown", use the real column names
+        Critical: Ignore column like "<SelectField field="*Unknown""
         Step 1: Carefully Identify the deselected fields, fields which have `selected`= False are the deselected fields. Carefully Identify the selected fields, fields which have `selected`= True are the selected fields.
         Step 2: If the number of deselected fields is less than the number of selected fields, remove the deselected fields from the dataset. Else if the number of selected fields is less than the number of deselected fields, filter the dataset for the selected fields.
         Step 3: Align with the Python datatypes and column names for the selected field basis `type` and `rename` parameter respectively.
@@ -79,7 +80,11 @@ comprehensive_guide = {
         Python code -
         Step 1: If the number of deselected fields is less than the number of selected fields, remove the deselected fields from the dataset. Else if the number of selected fields is less than the number of deselected fields, filter the dataset for the selected fields.
                 In this case, the deselected fields are less than the selected fields, hence we instantly drop them conveniently.
-           deselected_columns = ["BCN_Customer Flag", "BCN_Cleaned Country_Rolled-up"]
+                Don't use "*Unknown" as the column name for the deselected fields, no matter select or deselect, use the real column names.
+                For example: "deselected_columns = ["*Unknown"]
+                df_25_Output = df_20_Output.drop(columns=deselected_columns)" Will not work.
+                deselected_columns = ["BCN_Customer Flag", "BCN_Cleaned Country_Rolled-up"]
+           
         Step 2:
             df = df.drop(columns=deselected_columns)
         Step 3:
@@ -176,7 +181,13 @@ comprehensive_guide = {
             Note: Do not create dummy DataFrames to implement this tool.
         """
     ),
-
+    "Download": (
+        r"""
+            Download Tool:
+            - Always include `verify=False` in the request to disable SSL certificate verification.
+            - Example: `response = requests.get(url, headers=headers, timeout=600, verify=False)`
+        """
+    ),
     "Crosstab": (
         r"""
          
@@ -205,6 +216,24 @@ comprehensive_guide = {
 
             Note 1: Ignore the "Unknown" columns.
             Note 2: Do not create dummy DataFrames to implement this tool.
+            Important note 1:
+            Include all the rows even they don't have valid values for the columns in the result. You should get all the unique index, and then left join it with the result of the melt operation.
+            E.g.
+            
+            "all_hr_ids = df_279_Output[['HrId_HrId']].drop_duplicates()
+
+            df_278_Output = df_279_Output.pivot_table(
+                index='HrId_HrId', 
+                columns='Cycle', 
+                values='Bucket', 
+                aggfunc=lambda x: ','.join(x.astype(str)), 
+                fill_value=''
+            ).reset_index()
+            df_278_Output = all_hr_ids.merge(df_278_Output, on='HrId_HrId', how='left')"
+            Important note 2: In alteryx, the transpose tool will use "_" to replace " " in new column names.
+            E.g.: 
+            "df_278_Output.columns = df_278_Output.columns.str.replace(' ', '_')"
+
         """
     ),
 
@@ -653,8 +682,6 @@ comprehensive_guide = {
 
     "Join":  (
         r"""
-         
-        
         Follow the INSTRUCTIONS below -
         1) For LEFT JOIN
 
@@ -858,7 +885,7 @@ comprehensive_guide = {
         - Purpose: This tool is used to preview or inspect data within the workflow.
         - Instructions: Generate Python code that displays a summary or preview of a DataFrame.
           For example, use df.head() to display the first few rows.
-        - Requirements: Do not include additional debugging output; simply return or display the preview data.
+        - Requirements: Do not include additional debugging output; simply return or display the preview data. And don't generate any charts.
         """
     ),
     "Dbfileoutput": (

@@ -90,7 +90,7 @@ def generate_python_code_from_alteryx_df(df_nodes, df_connections, progress_bar=
     )
 
     # Initialize the ChatOpenAI LLM using your chosen model.
-    llm = ChatOpenAI(temperature=0, model_name="gpt-4o-mini")
+    llm = ChatOpenAI(temperature=0, model_name="gpt-4o")
 
     # Create the LangChain LLMChain.
     chain = LLMChain(llm=llm, prompt=prompt_template)
